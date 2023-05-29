@@ -63,7 +63,7 @@ const (
 
 var (
 	nodeDir       = "/sys/devices/system/node/"
-	onlinePath    = "/sys/devices/system/cpu/online"
+	cpuOnlinePath = "/sys/devices/system/cpu/online"
 	SysFSCpuTests = false
 )
 
@@ -379,7 +379,7 @@ func (fs *realSysFs) GetSystemUUID() (string, error) {
 func (fs *realSysFs) IsCPUOnline(cpuPath string) bool {
 	var err error
 	if SysFSCpuTests {
-		onlinePath, err = filepath.Abs(cpuPath + "/../online")
+		cpuOnlinePath, err = filepath.Abs(cpuPath + "/../online")
 	}
 	if err != nil {
 		klog.V(1).Infof("Unable to get absolute path for %s", cpuPath)
@@ -387,12 +387,12 @@ func (fs *realSysFs) IsCPUOnline(cpuPath string) bool {
 	}
 
 	// Quick check to determine if file exists: if it does not then kernel CPU hotplug is disabled and all CPUs are online.
-	_, err = os.Stat(onlinePath)
+	_, err = os.Stat(cpuOnlinePath)
 	if err != nil && os.IsNotExist(err) {
 		return true
 	}
 	if err != nil {
-		klog.V(1).Infof("Unable to stat %s: %s", onlinePath, err)
+		klog.V(1).Infof("Unable to stat %s: %s", cpuOnlinePath, err)
 	}
 
 	cpuID, err := getCPUID(cpuPath)
@@ -401,7 +401,7 @@ func (fs *realSysFs) IsCPUOnline(cpuPath string) bool {
 		return false
 	}
 
-	isOnline, err := isCPUOnline(onlinePath, cpuID)
+	isOnline, err := isCPUOnline(cpuOnlinePath, cpuID)
 	if err != nil {
 		klog.V(1).Infof("Unable to get online CPUs list: %s", err)
 		return false
@@ -473,21 +473,21 @@ func isCPUOnline(path string, cpuID uint16) (bool, error) {
 
 // Looks for sysfs cpu path containing given CPU property, e.g. core_id or physical_package_id
 // and returns number of unique values of given property, exemplary usage: getting number of CPU physical cores
-func GetUniqueCPUPropertyCount(cpuBusPath string, propertyName string) int {
-	absCPUBusPath, err := filepath.Abs(cpuBusPath)
+func GetUniqueCPUPropertyCount(cpuAttributesPath string, propertyName string) int {
+	absCPUAttributesPath, err := filepath.Abs(cpuAttributesPath)
 	if err != nil {
-		klog.Errorf("Cannot make %s absolute", cpuBusPath)
+		klog.Errorf("Cannot make %s absolute", cpuAttributesPath)
 		return 0
 	}
-	pathPattern := absCPUBusPath + "/cpu*[0-9]"
+	pathPattern := absCPUAttributesPath + "/cpu*[0-9]"
 	sysCPUPaths, err := filepath.Glob(pathPattern)
 	if err != nil {
 		klog.Errorf("Cannot find files matching pattern (pathPattern: %s),  number of unique %s set to 0", pathPattern, propertyName)
 		return 0
 	}
-	onlinePath, err := filepath.Abs(cpuBusPath + "/online")
+	cpuOnlinePath, err := filepath.Abs(cpuAttributesPath + "/online")
 	if err != nil {
-		klog.V(1).Infof("Unable to get absolute path for %s", cpuBusPath+"/../online")
+		klog.V(1).Infof("Unable to get absolute path for %s", cpuAttributesPath+"/../online")
 		return 0
 	}
 
@@ -502,7 +502,7 @@ func GetUniqueCPUPropertyCount(cpuBusPath string, propertyName string) int {
 			klog.V(1).Infof("Unable to get CPU ID from path %s: %s", sysCPUPath, err)
 			return 0
 		}
-		isOnline, err := isCPUOnline(onlinePath, cpuID)
+		isOnline, err := isCPUOnline(cpuOnlinePath, cpuID)
 		if err != nil && !os.IsNotExist(err) {
 			klog.V(1).Infof("Unable to determine CPU online state: %s", err)
 			continue
