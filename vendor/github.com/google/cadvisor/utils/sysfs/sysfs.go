@@ -62,7 +62,9 @@ const (
 )
 
 var (
-	nodeDir = "/sys/devices/system/node/"
+	nodeDir       = "/sys/devices/system/node/"
+	onlinePath    = "/sys/devices/system/cpu/online"
+	SysFSCpuTests = false
 )
 
 type CacheInfo struct {
@@ -375,7 +377,10 @@ func (fs *realSysFs) GetSystemUUID() (string, error) {
 }
 
 func (fs *realSysFs) IsCPUOnline(cpuPath string) bool {
-	onlinePath, err := filepath.Abs(cpuPath + "/../online")
+	var err error
+	if SysFSCpuTests {
+		onlinePath, err = filepath.Abs(cpuPath + "/../online")
+	}
 	if err != nil {
 		klog.V(1).Infof("Unable to get absolute path for %s", cpuPath)
 		return false
@@ -448,10 +453,9 @@ func isCPUOnline(path string, cpuID uint16) (bool, error) {
 			if min > max {
 				return false, fmt.Errorf("invalid values in %s", path)
 			}
-			for i := min; i <= max; i++ {
-				if uint16(i) == cpuID {
-					return true, nil
-				}
+			// Return true, if the CPU under consideration is in the range of online CPUs.
+			if cpuID >= uint16(min) && cpuID <= uint16(max) {
+				return true, nil
 			}
 		case 1:
 			value, err := strconv.ParseUint(s, 10, 16)

@@ -426,6 +426,7 @@ func getCoresInfo(sysFs sysfs.SysFs, cpuDirs []string) ([]info.Core, error) {
 			return nil, fmt.Errorf("unexpected format of CPU directory, cpuDirRegExp %s, cpuDir: %s", cpuDirRegExp, cpuDir)
 		}
 		if !sysFs.IsCPUOnline(cpuDir) {
+			klog.Warningf("The target CPU online bit is: %s, %t", cpuDir, sysFs.IsCPUOnline(cpuDir))
 			continue
 		}
 
