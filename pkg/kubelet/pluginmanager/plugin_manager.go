@@ -18,6 +18,7 @@ package pluginmanager
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -35,13 +36,16 @@ import (
 // need to be registered/deregistered and makes it so.
 type PluginManager interface {
 	// Starts the plugin manager and all the asynchronous loops that it controls
-	Run(ctx context.Context, sourcesReady config.SourcesReady, stopCh <-chan struct{})
+	Run(ctx context.Context, sourcesReady config.SourcesReady)
 
 	// AddHandler adds the given plugin handler for a specific plugin type, which
 	// will be added to the actual state of world cache so that it can be passed to
 	// the desired state of world cache in order to be used during plugin
 	// registration/deregistration
 	AddHandler(pluginType string, pluginHandler cache.PluginHandler)
+
+	// Wait blocks until the plugin manager's Run goroutine has completed
+	Wait()
 }
 
 const (
@@ -102,16 +106,21 @@ type pluginManager struct {
 	// The data structure is populated by the desired state of the world
 	// populator (plugin watcher).
 	desiredStateOfWorld cache.DesiredStateOfWorld
+
+	// runWg tracks the completion of the Run goroutine
+	runWg sync.WaitGroup
 }
 
 var _ PluginManager = &pluginManager{}
 
-func (pm *pluginManager) Run(ctx context.Context, sourcesReady config.SourcesReady, stopCh <-chan struct{}) {
+func (pm *pluginManager) Run(ctx context.Context, sourcesReady config.SourcesReady) {
 	defer runtime.HandleCrashWithContext(ctx)
+	pm.runWg.Add(1)
+	defer pm.runWg.Done()
 
 	logger := klog.FromContext(ctx)
 
-	if err := pm.desiredStateOfWorldPopulator.Start(ctx, stopCh); err != nil {
+	if err := pm.desiredStateOfWorldPopulator.Start(ctx); err != nil {
 		logger.Error(err, "The desired_state_of_world populator (plugin watcher) starts failed!")
 		return
 	}
@@ -119,11 +128,15 @@ func (pm *pluginManager) Run(ctx context.Context, sourcesReady config.SourcesRea
 	logger.V(2).Info("The desired_state_of_world populator (plugin watcher) starts")
 
 	logger.Info("Starting Kubelet Plugin Manager")
-	go pm.reconciler.Run(stopCh)
+	go pm.reconciler.Run(ctx.Done())
 
 	metrics.Register(pm.actualStateOfWorld, pm.desiredStateOfWorld)
-	<-stopCh
+	<-ctx.Done()
 	logger.Info("Shutting down Kubelet Plugin Manager")
+}
+
+func (pm *pluginManager) Wait() {
+	pm.runWg.Wait()
 }
 
 func (pm *pluginManager) AddHandler(pluginType string, handler cache.PluginHandler) {

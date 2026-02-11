@@ -189,7 +189,6 @@ func (l delegatingNodeLister) List(selector labels.Selector) (ret []*v1.Node, er
 }
 
 func TestUpdateNewNodeStatus(t *testing.T) {
-	tCtx := ktesting.Init(t)
 	cases := []struct {
 		desc                string
 		nodeStatusMaxImages int32
@@ -217,6 +216,8 @@ func TestUpdateNewNodeStatus(t *testing.T) {
 				t, inputImageList, false /* controllerAttachDetachEnabled */, true /*initFakeVolumePlugin*/, true /* localStorageCapacityIsolation */, false /*excludePodAdmitHandlers*/, false /*enableResizing*/)
 			defer testKubelet.Cleanup()
 			kubelet := testKubelet.kubelet
+			// Use the TestKubelet's context for all operations
+			tCtx := testKubelet.ctx
 			kubelet.nodeStatusMaxImages = tc.nodeStatusMaxImages
 			kubelet.kubeClient = nil // ensure only the heartbeat client is used
 			kubelet.containerManager = &localCM{
@@ -345,10 +346,11 @@ func TestUpdateNewNodeStatus(t *testing.T) {
 }
 
 func TestUpdateExistingNodeStatus(t *testing.T) {
-	tCtx := ktesting.Init(t)
 	testKubelet := newTestKubelet(t, false /* controllerAttachDetachEnabled */)
 	defer testKubelet.Cleanup()
 	kubelet := testKubelet.kubelet
+	// Use the TestKubelet's context for all operations
+	tCtx := testKubelet.ctx
 	kubelet.nodeStatusMaxImages = 5 // don't truncate the image list that gets constructed by hand for this test
 	kubelet.kubeClient = nil        // ensure only the heartbeat client is used
 	kubelet.containerManager = &localCM{

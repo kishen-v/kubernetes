@@ -153,6 +153,8 @@ func (f *fakeImageGCManager) GetImageList() ([]kubecontainer.Image, error) {
 
 type TestKubelet struct {
 	kubelet              *Kubelet
+	ctx                  context.Context
+	cancel               context.CancelFunc
 	fakeRuntime          *containertest.FakeRuntime
 	fakeContainerManager *cm.FakeContainerManager
 	fakeKubeClient       *fake.Clientset
@@ -164,6 +166,14 @@ type TestKubelet struct {
 
 func (tk *TestKubelet) Cleanup() {
 	if tk.kubelet != nil {
+		// Signal the plugin manager to shutdown. This prevent reconcilation during cleanup.
+		if tk.cancel != nil {
+			tk.cancel()
+			// Wait for the plugin manager to fully shutdown
+			if tk.kubelet.pluginManager != nil {
+				tk.kubelet.pluginManager.Wait()
+			}
+		}
 		os.RemoveAll(tk.kubelet.rootDirectory)
 		tk.kubelet = nil
 	}
@@ -212,6 +222,7 @@ func newTestKubeletWithImageList(
 	enableResizing bool,
 ) *TestKubelet {
 	logger, tCtx := ktesting.NewTestContext(t)
+	ctx, cancel := context.WithCancel(tCtx)
 
 	fakeRuntime := &containertest.FakeRuntime{
 		ImageList: imageList,
@@ -332,7 +343,7 @@ func newTestKubeletWithImageList(
 
 	kubelet.allocationManager = allocation.NewInMemoryManager(
 		kubelet.statusManager,
-		func(pod *v1.Pod) { kubelet.HandlePodSyncs(tCtx, []*v1.Pod{pod}) },
+		func(pod *v1.Pod) { kubelet.HandlePodSyncs(ctx, []*v1.Pod{pod}) },
 		kubelet.GetActivePods,
 		kubelet.podManager.GetPodByUID,
 		config.NewSourcesReady(func(_ sets.Set[string]) bool { return enableResizing }),
@@ -340,7 +351,7 @@ func newTestKubeletWithImageList(
 	)
 	kubelet.allocationManager.SetContainerRuntime(fakeRuntime)
 	volumeStatsAggPeriod := time.Second * 10
-	kubelet.resourceAnalyzer = serverstats.NewResourceAnalyzer(tCtx, kubelet, volumeStatsAggPeriod, kubelet.recorder)
+	kubelet.resourceAnalyzer = serverstats.NewResourceAnalyzer(ctx, kubelet, volumeStatsAggPeriod, kubelet.recorder)
 
 	fakeHostStatsProvider := stats.NewFakeHostStatsProvider(&containertest.FakeOS{})
 
@@ -461,7 +472,7 @@ func newTestKubeletWithImageList(
 	kubelet.AddPodSyncLoopHandler(activeDeadlineHandler)
 	kubelet.AddPodSyncHandler(activeDeadlineHandler)
 	kubelet.kubeletConfiguration.LocalStorageCapacityIsolation = localStorageCapacityIsolation
-	return &TestKubelet{kubelet, fakeRuntime, fakeContainerManager, fakeKubeClient, fakeMirrorClient, fakeClock, nil, plug}
+	return &TestKubelet{kubelet, ctx, cancel, fakeRuntime, fakeContainerManager, fakeKubeClient, fakeMirrorClient, fakeClock, nil, plug}
 }
 
 func newTestPods(count int) []*v1.Pod {

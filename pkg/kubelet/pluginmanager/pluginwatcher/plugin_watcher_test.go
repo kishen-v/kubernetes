@@ -263,7 +263,7 @@ func TestPluginRegistrationAtKubeletStart(t *testing.T) {
 func newWatcher(t *testing.T, socketDir string, desiredStateOfWorldCache cache.DesiredStateOfWorld, stopCh <-chan struct{}) *Watcher {
 	tCtx := ktesting.Init(t)
 	w := NewWatcher(socketDir, desiredStateOfWorldCache)
-	require.NoError(t, w.Start(tCtx, stopCh))
+	require.NoError(t, w.Start(tCtx))
 
 	return w
 }

@@ -1767,7 +1767,7 @@ func (kl *Kubelet) initializeRuntimeDependentModules(ctx context.Context) {
 
 	// Start the plugin manager
 	logger.V(4).Info("Starting plugin manager")
-	go kl.pluginManager.Run(ctx, kl.sourcesReady, wait.NeverStop)
+	go kl.pluginManager.Run(ctx, kl.sourcesReady)
 
 	err = kl.shutdownManager.Start(ctx)
 	if err != nil {

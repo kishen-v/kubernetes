@@ -17,6 +17,7 @@ limitations under the License.
 package pluginmanager
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -143,14 +144,19 @@ func TestPluginManager(t *testing.T) {
 	defer cleanup(t)
 
 	tCtx := ktesting.Init(t)
+	ctx, cancel := context.WithCancel(tCtx)
+
 	pluginManager := newTestPluginManager(socketDir)
 
+	defer func() {
+		cancel()
+		pluginManager.Wait()
+	}()
+
 	// Start the plugin manager
-	stopChan := make(chan struct{})
-	defer close(stopChan)
 	go func() {
 		sourcesReady := config.NewSourcesReady(func(_ sets.Set[string]) bool { return true })
-		pluginManager.Run(tCtx, sourcesReady, stopChan)
+		pluginManager.Run(ctx, sourcesReady)
 	}()
 
 	// Add handler for device plugin

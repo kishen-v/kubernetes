@@ -48,7 +48,7 @@ func NewWatcher(sockDir string, desiredStateOfWorld cache.DesiredStateOfWorld) *
 }
 
 // Start watches for the creation and deletion of plugin sockets at the path
-func (w *Watcher) Start(ctx context.Context, stopCh <-chan struct{}) error {
+func (w *Watcher) Start(ctx context.Context) error {
 	logger := klog.FromContext(ctx)
 	logger.V(2).Info("Plugin Watcher Start", "path", w.path)
 
@@ -88,7 +88,7 @@ func (w *Watcher) Start(ctx context.Context, stopCh <-chan struct{}) error {
 					logger.Error(err, "FsWatcher received error")
 				}
 				continue
-			case <-stopCh:
+			case <-ctx.Done():
 				w.fsWatcher.Close()
 				return
 			}

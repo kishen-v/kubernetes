@@ -38,7 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/uuid"
-	"k8s.io/apimachinery/pkg/util/wait"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/tools/record"
 	featuregatetesting "k8s.io/component-base/featuregate/testing"
@@ -336,7 +335,7 @@ func setupPluginManager(t *testing.T, pluginSocketName string, m Manager) plugin
 func runPluginManager(ctx context.Context, pluginManager pluginmanager.PluginManager) {
 	// FIXME: Replace sets.Set[string] with sets.Set[string]
 	sourcesReady := config.NewSourcesReady(func(_ sets.Set[string]) bool { return true })
-	go pluginManager.Run(ctx, sourcesReady, wait.NeverStop)
+	go pluginManager.Run(ctx, sourcesReady)
 }
 
 func setup(ctx context.Context, t *testing.T, devs []*pluginapi.Device, callback monitorCallback, socketName string, pluginSocketName string) (Manager, <-chan interface{}, *plugin.Stub) {
