@@ -166,13 +166,10 @@ type TestKubelet struct {
 
 func (tk *TestKubelet) Cleanup() {
 	if tk.kubelet != nil {
-		// Signal the plugin manager to shutdown. This prevent reconcilation during cleanup.
+		// Signal the plugin manager to shutdown. This prevents reconciliation during cleanup.
+		// Run() will block until the watcher goroutine exits before returning.
 		if tk.cancel != nil {
 			tk.cancel()
-			// Wait for the plugin manager to fully shutdown
-			if tk.kubelet.pluginManager != nil {
-				tk.kubelet.pluginManager.Wait()
-			}
 		}
 		os.RemoveAll(tk.kubelet.rootDirectory)
 		tk.kubelet = nil

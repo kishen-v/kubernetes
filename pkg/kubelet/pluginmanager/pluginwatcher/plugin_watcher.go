@@ -48,19 +48,20 @@ func NewWatcher(sockDir string, desiredStateOfWorld cache.DesiredStateOfWorld) *
 }
 
 // Start watches for the creation and deletion of plugin sockets at the path
-func (w *Watcher) Start(ctx context.Context) error {
+// It returns a channel that is closed when the watcher goroutine has fully exited.
+func (w *Watcher) Start(ctx context.Context) (<-chan struct{}, error) {
 	logger := klog.FromContext(ctx)
 	logger.V(2).Info("Plugin Watcher Start", "path", w.path)
 
 	// Creating the directory to be watched if it doesn't exist yet,
 	// and walks through the directory to discover the existing plugins.
 	if err := w.init(ctx); err != nil {
-		return err
+		return nil, err
 	}
 
 	fsWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return fmt.Errorf("failed to start plugin fsWatcher, err: %v", err)
+		return nil, fmt.Errorf("failed to start plugin fsWatcher, err: %v", err)
 	}
 	w.fsWatcher = fsWatcher
 
@@ -69,7 +70,9 @@ func (w *Watcher) Start(ctx context.Context) error {
 		logger.Error(err, "Failed to traverse plugin socket path", "path", w.path)
 	}
 
+	done := make(chan struct{})
 	go func(fsWatcher *fsnotify.Watcher) {
+		defer close(done)
 		for {
 			select {
 			case event := <-fsWatcher.Events:
@@ -95,7 +98,7 @@ func (w *Watcher) Start(ctx context.Context) error {
 		}
 	}(fsWatcher)
 
-	return nil
+	return done, nil
 }
 
 func (w *Watcher) init(ctx context.Context) error {

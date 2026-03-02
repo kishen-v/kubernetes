@@ -18,7 +18,6 @@ package pluginmanager
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -43,9 +42,6 @@ type PluginManager interface {
 	// the desired state of world cache in order to be used during plugin
 	// registration/deregistration
 	AddHandler(pluginType string, pluginHandler cache.PluginHandler)
-
-	// Wait blocks until the plugin manager's Run goroutine has completed
-	Wait()
 }
 
 const (
@@ -106,21 +102,17 @@ type pluginManager struct {
 	// The data structure is populated by the desired state of the world
 	// populator (plugin watcher).
 	desiredStateOfWorld cache.DesiredStateOfWorld
-
-	// runWg tracks the completion of the Run goroutine
-	runWg sync.WaitGroup
 }
 
 var _ PluginManager = &pluginManager{}
 
 func (pm *pluginManager) Run(ctx context.Context, sourcesReady config.SourcesReady) {
 	defer runtime.HandleCrashWithContext(ctx)
-	pm.runWg.Add(1)
-	defer pm.runWg.Done()
 
 	logger := klog.FromContext(ctx)
 
-	if err := pm.desiredStateOfWorldPopulator.Start(ctx); err != nil {
+	watcherDone, err := pm.desiredStateOfWorldPopulator.Start(ctx)
+	if err != nil {
 		logger.Error(err, "The desired_state_of_world populator (plugin watcher) starts failed!")
 		return
 	}
@@ -133,10 +125,9 @@ func (pm *pluginManager) Run(ctx context.Context, sourcesReady config.SourcesRea
 	metrics.Register(pm.actualStateOfWorld, pm.desiredStateOfWorld)
 	<-ctx.Done()
 	logger.Info("Shutting down Kubelet Plugin Manager")
-}
-
-func (pm *pluginManager) Wait() {
-	pm.runWg.Wait()
+	// Wait for the watcher goroutine to fully exit before returning,
+	// ensuring no goroutines access the plugin directory after cleanup.
+	<-watcherDone
 }
 
 func (pm *pluginManager) AddHandler(pluginType string, handler cache.PluginHandler) {

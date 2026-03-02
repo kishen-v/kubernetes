@@ -148,10 +148,7 @@ func TestPluginManager(t *testing.T) {
 
 	pluginManager := newTestPluginManager(socketDir)
 
-	defer func() {
-		cancel()
-		pluginManager.Wait()
-	}()
+	defer cancel()
 
 	// Start the plugin manager
 	go func() {
