@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/fsnotify/fsnotify"
 	"k8s.io/klog/v2"
@@ -37,6 +38,9 @@ type Watcher struct {
 	fsWatcher           *fsnotify.Watcher
 	desiredStateOfWorld cache.DesiredStateOfWorld
 	stopped             chan struct{}
+
+	// startOnce ensures Start() logic executes only once
+	startOnce sync.Once
 }
 
 // NewWatcher provides a new watcher for socket registration
@@ -49,56 +53,62 @@ func NewWatcher(sockDir string, desiredStateOfWorld cache.DesiredStateOfWorld) *
 	}
 }
 
-// Start watches for the creation and deletion of plugin sockets at the path
+// Start watches for the creation and deletion of plugin sockets at the path.
+// It is safe to call Start() multiple times; only the first call will have effect.
 func (w *Watcher) Start(ctx context.Context, stopCh <-chan struct{}) error {
-	logger := klog.FromContext(ctx)
-	logger.V(2).Info("Plugin Watcher Start", "path", w.path)
+	var startErr error
+	w.startOnce.Do(func() {
+		logger := klog.FromContext(ctx)
+		logger.V(2).Info("Plugin Watcher Start", "path", w.path)
 
-	// Creating the directory to be watched if it doesn't exist yet,
-	// and walks through the directory to discover the existing plugins.
-	if err := w.init(ctx); err != nil {
-		return err
-	}
-
-	fsWatcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return fmt.Errorf("failed to start plugin fsWatcher, err: %v", err)
-	}
-	w.fsWatcher = fsWatcher
-
-	// Traverse plugin dir and add filesystem watchers before starting the plugin processing goroutine.
-	if err := w.traversePluginDir(ctx, w.path); err != nil {
-		logger.Error(err, "Failed to traverse plugin socket path", "path", w.path)
-	}
-
-	go func(fsWatcher *fsnotify.Watcher) {
-		defer close(w.stopped)
-		for {
-			select {
-			case event := <-fsWatcher.Events:
-				//TODO: Handle errors by taking corrective measures
-				if event.Has(fsnotify.Create) {
-					err := w.handleCreateEvent(ctx, event)
-					if err != nil {
-						logger.Error(err, "Error when handling create event", "event", event)
-					}
-				} else if event.Has(fsnotify.Remove) {
-					w.handleDeleteEvent(ctx, event)
-				}
-				continue
-			case err := <-fsWatcher.Errors:
-				if err != nil {
-					logger.Error(err, "FsWatcher received error")
-				}
-				continue
-			case <-stopCh:
-				w.fsWatcher.Close()
-				return
-			}
+		// Creating the directory to be watched if it doesn't exist yet,
+		// and walks through the directory to discover the existing plugins.
+		if startErr = w.init(ctx); startErr != nil {
+			return
 		}
-	}(fsWatcher)
 
-	return nil
+		w.fsWatcher, startErr = fsnotify.NewWatcher()
+		if startErr != nil {
+			startErr = fmt.Errorf("failed to start plugin fsWatcher, err: %w", startErr)
+			return
+		}
+
+		// Traverse plugin dir and add filesystem watchers before starting the plugin processing goroutine.
+		if err := w.traversePluginDir(ctx, w.path); err != nil {
+			logger.Error(err, "Failed to traverse plugin socket path", "path", w.path)
+		}
+
+		go func(fsWatcher *fsnotify.Watcher) {
+			defer close(w.stopped)
+			for {
+				select {
+				case event := <-fsWatcher.Events:
+					//TODO: Handle errors by taking corrective measures
+					if event.Has(fsnotify.Create) {
+						err := w.handleCreateEvent(ctx, event)
+						if err != nil {
+							logger.Error(err, "Error when handling create event", "event", event)
+						}
+					} else if event.Has(fsnotify.Remove) {
+						w.handleDeleteEvent(ctx, event)
+					}
+					continue
+				case err := <-fsWatcher.Errors:
+					if err != nil {
+						logger.Error(err, "FsWatcher received error")
+					}
+					continue
+				case <-stopCh:
+					if err := w.fsWatcher.Close(); err != nil {
+						logger.Error(err, "Error closing fsWatcher")
+					}
+					return
+				}
+			}
+		}(w.fsWatcher)
+	})
+
+	return startErr
 }
 
 // Stopped returns a channel that is closed when the watcher's goroutine has exited
