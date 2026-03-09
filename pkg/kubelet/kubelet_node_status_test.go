@@ -216,7 +216,6 @@ func TestUpdateNewNodeStatus(t *testing.T) {
 			testKubelet := newTestKubeletWithImageList(
 				t, inputImageList, false /* controllerAttachDetachEnabled */, true /*initFakeVolumePlugin*/, true /* localStorageCapacityIsolation */, false /*excludePodAdmitHandlers*/, false /*enableResizing*/)
 			defer testKubelet.Cleanup()
-			testKubelet.pluginManagerStarted = true
 			kubelet := testKubelet.kubelet
 			kubelet.nodeStatusMaxImages = tc.nodeStatusMaxImages
 			kubelet.kubeClient = nil // ensure only the heartbeat client is used
@@ -348,7 +347,6 @@ func TestUpdateNewNodeStatus(t *testing.T) {
 func TestUpdateExistingNodeStatus(t *testing.T) {
 	tCtx := ktesting.Init(t)
 	testKubelet := newTestKubelet(t, false /* controllerAttachDetachEnabled */)
-	testKubelet.pluginManagerStarted = true
 	defer testKubelet.Cleanup()
 	kubelet := testKubelet.kubelet
 	kubelet.nodeStatusMaxImages = 5 // don't truncate the image list that gets constructed by hand for this test
@@ -608,7 +606,6 @@ func TestUpdateExistingNodeStatusTimeout(t *testing.T) {
 func TestUpdateNodeStatusWithRuntimeStateError(t *testing.T) {
 	tCtx := ktesting.Init(t)
 	testKubelet := newTestKubelet(t, false /* controllerAttachDetachEnabled */)
-	testKubelet.pluginManagerStarted = true
 	defer testKubelet.Cleanup()
 	kubelet := testKubelet.kubelet
 	kubelet.nodeStatusMaxImages = 5 // don't truncate the image list that gets constructed by hand for this test
@@ -832,7 +829,6 @@ func TestUpdateNodeStatusError(t *testing.T) {
 func TestUpdateNodeStatusWithLease(t *testing.T) {
 	tCtx := ktesting.Init(t)
 	testKubelet := newTestKubelet(t, false /* controllerAttachDetachEnabled */)
-	testKubelet.pluginManagerStarted = true
 	defer testKubelet.Cleanup()
 	clock := testKubelet.fakeClock
 	kubelet := testKubelet.kubelet
@@ -1596,7 +1592,6 @@ func TestUpdateNewNodeStatusTooLargeReservation(t *testing.T) {
 	testKubelet := newTestKubeletWithImageList(
 		t, inputImageList, false /* controllerAttachDetachEnabled */, true /* initFakeVolumePlugin */, true /*localStorageCapacityIsolation*/, false /*excludePodAdmitHandlers*/, false /*enableResizing*/)
 	defer testKubelet.Cleanup()
-	testKubelet.pluginManagerStarted = true
 	kubelet := testKubelet.kubelet
 	kubelet.nodeStatusMaxImages = nodeStatusMaxImages
 	kubelet.kubeClient = nil // ensure only the heartbeat client is used
