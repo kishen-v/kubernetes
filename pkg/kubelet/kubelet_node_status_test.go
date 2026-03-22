@@ -508,6 +508,7 @@ func TestUpdateExistingNodeStatus(t *testing.T) {
 			},
 		},
 	}
+
 	kubelet.updateRuntimeUp(tCtx)
 	require.NoError(t, kubelet.updateNodeStatus(tCtx))
 

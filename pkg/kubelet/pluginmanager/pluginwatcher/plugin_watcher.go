@@ -64,12 +64,14 @@ func (w *Watcher) Start(ctx context.Context, stopCh <-chan struct{}) error {
 		// Creating the directory to be watched if it doesn't exist yet,
 		// and walks through the directory to discover the existing plugins.
 		if startErr = w.init(ctx); startErr != nil {
+			close(w.stopped)
 			return
 		}
 
 		w.fsWatcher, startErr = fsnotify.NewWatcher()
 		if startErr != nil {
 			startErr = fmt.Errorf("failed to start plugin fsWatcher, err: %w", startErr)
+			close(w.stopped)
 			return
 		}
 
