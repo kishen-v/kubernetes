@@ -165,7 +165,7 @@ type TestKubelet struct {
 
 func (tk *TestKubelet) Cleanup() {
 	if tk.kubelet != nil {
-		// Signal the plugin manager to shutdown. This prevent reconciliation during cleanup.
+		// Signal the plugin manager to shutdown. This prevents reconciliation during cleanup.
 		if tk.pluginManagerStopCh != nil {
 			close(tk.pluginManagerStopCh)
 			// Wait for the plugin manager to fully stop before removing rootDirectory, so its goroutines no longer access the filesystem.

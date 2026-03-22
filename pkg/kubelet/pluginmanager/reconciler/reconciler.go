@@ -82,23 +82,32 @@ type reconciler struct {
 	desiredStateOfWorld cache.DesiredStateOfWorld
 	actualStateOfWorld  cache.ActualStateOfWorld
 	handlers            map[string]cache.PluginHandler
-	stopped             chan struct{}
+	// stopped is closed when Run() exits. Unlike the parent PluginManager,
+	// this channel is not pre-closed because the reconciler is always started
+	// via Run() in normal operation which is managed by the parent.
+	// The parent PluginManager handles the pre-closed pattern to
+	// prevent deadlocks if its Run() is never called.
+	stopped chan struct{}
+	// runOnce ensures Run() logic executes only once
+	runOnce sync.Once
 	sync.RWMutex
 }
 
 var _ Reconciler = &reconciler{}
 
 func (rc *reconciler) Run(stopCh <-chan struct{}) {
-	defer close(rc.stopped)
-	// Use context.TODO() because we currently do not have a proper context to pass in.
-	// Replace this with an appropriate context when refactoring this function to accept a context parameter.
-	ctx := context.TODO()
+	rc.runOnce.Do(func() {
+		defer close(rc.stopped)
+		// Use context.TODO() because we currently do not have a proper context to pass in.
+		// Replace this with an appropriate context when refactoring this function to accept a context parameter.
+		ctx := context.TODO()
 
-	wait.Until(func() {
-		rc.reconcile(ctx)
-	},
-		rc.loopSleepDuration,
-		stopCh)
+		wait.Until(func() {
+			rc.reconcile(ctx)
+		},
+			rc.loopSleepDuration,
+			stopCh)
+	})
 }
 
 func (rc *reconciler) Stopped() <-chan struct{} {
