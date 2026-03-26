@@ -267,7 +267,7 @@ func TestNodeRestriction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error creating pod1: %v", err)
 	}
-
+	var lastErr error
 	t.Run("node1 can create PCR for pod on node1", func(t *testing.T) {
 		// Have node2 create a PodCertificateRequest for pod1
 		_, _, pubPKIX, proof := mustMakeEd25519KeyAndProof(t, []byte(pod.ObjectMeta.UID))
@@ -291,16 +291,16 @@ func TestNodeRestriction(t *testing.T) {
 		}
 
 		// Informer lag inside kube-apiserver could cause us to get transient
-		// errors.
+		// errors. Retry on all errors since transient rejections are expected during informer lag.
 		err = wait.PollUntilContextTimeout(ctx, 1*time.Second, 15*time.Second, true, func(ctx context.Context) (bool, error) {
-			_, err = node1Client.CertificatesV1beta1().PodCertificateRequests("default").Create(ctx, pcr, metav1.CreateOptions{})
-			if err != nil {
-				return false, err
+			_, lastErr = node1Client.CertificatesV1beta1().PodCertificateRequests("default").Create(ctx, pcr, metav1.CreateOptions{})
+			if lastErr != nil {
+				return false, nil
 			}
 			return true, nil
 		})
 		if err != nil {
-			t.Fatalf("PCR creation unexpectedly failed: %v", err)
+			t.Fatalf("PCR creation unexpectedly failed: %v (Client err: %v)", err, lastErr)
 		}
 	})
 
@@ -371,14 +371,14 @@ func TestNodeRestriction(t *testing.T) {
 		// hold here for 15 seconds and assume if we're still getting an error,
 		// then it can't be due to informer lag.
 		err = wait.PollUntilContextTimeout(ctx, 1*time.Second, 15*time.Second, true, func(ctx context.Context) (bool, error) {
-			_, err = node2Client.CertificatesV1beta1().PodCertificateRequests("default").Create(ctx, pcr, metav1.CreateOptions{})
-			if err == nil {
-				return true, err
+			_, lastErr = node2Client.CertificatesV1beta1().PodCertificateRequests("default").Create(ctx, pcr, metav1.CreateOptions{})
+			if lastErr == nil {
+				return true, nil
 			}
 			return false, nil
 		})
 		if err == nil { // EQUALS nil
-			t.Fatalf("PCR creation unexpectedly succeeded")
+			t.Fatalf("PCR creation unexpectedly succeeded. %v (Client err: %v)", err, lastErr)
 		}
 
 	})
