@@ -491,7 +491,7 @@ func TestCRD(t *testing.T) {
 				waitForGroupVersionsV2([]metav1.GroupVersion{stableV1}),
 
 				// The CRD group-versions not served by the aggregated
-				// apiservice should still be availablee
+				// apiservice should still be available
 				waitForGroupVersionsV1([]metav1.GroupVersion{stableV2, stableV1alpha1}),
 				waitForGroupVersionsV2([]metav1.GroupVersion{stableV2, stableV1alpha1}),
 
