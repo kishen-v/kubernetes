@@ -285,7 +285,7 @@ func TestWatcherStoppedOnInitError(t *testing.T) {
 
 // TestWatcherMultipleStartCalls to confirm that the plugin is initialized exactly once
 func TestWatcherMultipleStartCalls(t *testing.T) {
-	socketDir := initTempDir(t)
+	socketDir := t.TempDir()
 
 	tCtx := ktesting.Init(t)
 	dsw := cache.NewDesiredStateOfWorld()
@@ -311,15 +311,13 @@ func TestWatcherMultipleStartCalls(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("Watcher did not stop within timeout")
 	}
-
-	err = os.RemoveAll(socketDir)
 	require.NoError(t, err, "Failed to remove socket directory")
 }
 
 // TestWatcherDoesNotRecreateDirectoryAfterStop verifies that the watcher does not recreate
 // the plugin directory after it has been stopped and the directory has been removed.
 func TestWatcherDoesNotRecreateDirectoryAfterStop(t *testing.T) {
-	socketDir := initTempDir(t)
+	socketDir := t.TempDir()
 
 	dsw := cache.NewDesiredStateOfWorld()
 	stopCh := make(chan struct{})
@@ -333,10 +331,10 @@ func TestWatcherDoesNotRecreateDirectoryAfterStop(t *testing.T) {
 	// Stop the watcher by closing stopCh
 	close(stopCh)
 
-	// Remove directory immediately after signalling stop (before watcher fully stops) to confirm
-	//  that it's not re-created by the pluginWatcher.
+	// Remove directory immediately after signaling stop to confirm
+	// that it's not re-created by the pluginWatcher during its teardown.
 	err = os.RemoveAll(socketDir)
-	require.NoError(t, err, "Should be able to remove plugin directory after signaling stop")
+	require.NoError(t, err, "Should be able to remove plugin directory")
 
 	// Wait for watcher to fully stop
 	select {
