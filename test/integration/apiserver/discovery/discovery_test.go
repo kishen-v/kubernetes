@@ -611,16 +611,6 @@ func TestCRD(t *testing.T) {
 				// Show the CRD (with stablev2) is the one which is now advertised
 				waitForGroupVersionsV1([]metav1.GroupVersion{stableV1, stableV2}),
 				waitForGroupVersionsV2([]metav1.GroupVersion{stableV1, stableV2}),
-
-				// APIService cleanup runs first and waits for 'v1' to be deleted.
-				// Explicitly deleting the CRD here prevents t.Cleanup() from
-				// deadlocking and causing a timeout as they both share the same v1 group.
-				deleteObject{
-					GroupVersionResource: metav1.GroupVersionResource(apiextensionsv1.SchemeGroupVersion.WithResource("customresourcedefinitions")),
-					Name:                 "bars.stable.example.com",
-				},
-				waitForAbsentGroupVersionsV1([]metav1.GroupVersion{stableV1, stableV2}),
-				waitForAbsentGroupVersionsV2([]metav1.GroupVersion{stableV1, stableV2}),
 			},
 		},
 	})

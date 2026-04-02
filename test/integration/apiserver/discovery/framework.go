@@ -153,8 +153,13 @@ func (a applyAPIService) Cleanup(ctx context.Context, client testClient) error {
 		maxTimeout,
 		true,
 		func(ctx context.Context) (done bool, err error) {
-			_, err = client.ApiregistrationV1().APIServices().Get(ctx, name, metav1.GetOptions{})
+			current, err := client.ApiregistrationV1().APIServices().Get(ctx, name, metav1.GetOptions{})
 			if err == nil {
+				// If the object was recreated by CRD auto-registration
+				// (different spec), the one created from the tests is removed.
+				if !reflect.DeepEqual(current.Spec.Service, a.Service) {
+					return true, nil
+				}
 				return false, nil
 			}
 
