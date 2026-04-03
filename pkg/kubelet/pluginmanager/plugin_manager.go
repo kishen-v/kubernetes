@@ -134,6 +134,15 @@ func (pm *pluginManager) Run(ctx context.Context, sourcesReady config.SourcesRea
 		defer close(pm.stopped)
 		defer runtime.HandleCrashWithContext(ctx)
 
+		// Check if a shutdown was requested before manager initialization.
+		// This prevents the filesystem/watcher setup from immediate Kubelet
+		// shutdowns either production or in the test scope.
+		select {
+		case <-stopCh:
+			return
+		default:
+		}
+
 		logger := klog.FromContext(ctx)
 
 		if err := pm.desiredStateOfWorldPopulator.Start(ctx, stopCh); err != nil {
