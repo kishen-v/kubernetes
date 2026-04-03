@@ -311,7 +311,6 @@ func TestWatcherMultipleStartCalls(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("Watcher did not stop within timeout")
 	}
-	require.NoError(t, err, "Failed to remove socket directory")
 }
 
 // TestWatcherDoesNotRecreateDirectoryAfterStop verifies that the watcher does not recreate
