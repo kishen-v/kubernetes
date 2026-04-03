@@ -321,18 +321,13 @@ func TestWatcherMultipleStartCalls(t *testing.T) {
 func TestWatcherDoesNotRecreateDirectoryAfterStop(t *testing.T) {
 	socketDir := initTempDir(t)
 
-	tCtx := ktesting.Init(t)
 	dsw := cache.NewDesiredStateOfWorld()
-
-	w := NewWatcher(socketDir, dsw)
 	stopCh := make(chan struct{})
 
-	// Start the watcher
-	err := w.Start(tCtx, stopCh)
-	require.NoError(t, err)
+	w := newWatcher(t, socketDir, dsw, stopCh)
 
 	// Verify directory exists after start
-	_, err = os.Stat(socketDir)
+	_, err := os.Stat(socketDir)
 	require.NoError(t, err, "Plugin directory should exist after watcher starts")
 
 	// Stop the watcher by closing stopCh
