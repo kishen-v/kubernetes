@@ -134,6 +134,12 @@ func (pm *pluginManager) Run(ctx context.Context, sourcesReady config.SourcesRea
 		defer close(pm.stopped)
 		defer runtime.HandleCrashWithContext(ctx)
 
+		select {
+		case <-stopCh:
+			return
+		default:
+		}
+
 		logger := klog.FromContext(ctx)
 
 		if err := pm.desiredStateOfWorldPopulator.Start(ctx, stopCh); err != nil {
