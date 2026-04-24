@@ -50,7 +50,7 @@ type Expiring struct {
 	clock clock.Clock
 
 	// mu protects the below fields
-	mu sync.RWMutex
+	mu sync.Mutex
 	// cache is the internal map that backs the cache.
 	cache map[interface{}]entry
 	// generation is used as a cheap resource version for cache entries. Cleanups
@@ -74,8 +74,8 @@ type entry struct {
 
 // Get looks up an entry in the cache.
 func (c *Expiring) Get(key interface{}) (val interface{}, ok bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	e, ok := c.cache[key]
 	if !ok {
 		return nil, false
@@ -144,8 +144,8 @@ func (c *Expiring) del(key interface{}, generation uint64) {
 
 // Len returns the number of items in the cache.
 func (c *Expiring) Len() int {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return len(c.cache)
 }
 
