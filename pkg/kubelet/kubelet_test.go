@@ -160,7 +160,6 @@ type TestKubelet struct {
 	fakeKubeClient       *fake.Clientset
 	fakeMirrorClient     *podtest.FakeMirrorClient
 	fakeClock            *testingclock.FakeClock
-	pluginManagerStopCh  chan struct{}
 	mounter              mount.Interface
 	pluginManagerStopCh  chan struct{}
 	volumePlugin         *volumetest.FakeVolumePlugin
@@ -466,7 +465,7 @@ func newTestKubeletWithImageList(
 		kubelet.getPluginsRegistrationDir(), /* sockDir */
 		kubelet.recorder,
 	)
-	pluginManagerStopCh := make(chan struct{})
+	pluginManagerStopCh = make(chan struct{})
 	kubelet.pluginManagerStopCh = pluginManagerStopCh
 	kubelet.setNodeStatusFuncs = kubelet.defaultNodeStatusFuncs()
 
